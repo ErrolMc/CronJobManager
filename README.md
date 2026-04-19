@@ -87,6 +87,22 @@ The worker auto-loads every `.ts` file in `worker/src/jobs/`. Each file exports 
 
 See `worker/src/jobs/logMessage.ts` for the canonical shape.
 
+## Deploying
+
+### Frontend (Vercel)
+
+The frontend lives in `web/`, not at the repo root, so Vercel needs to be pointed at it:
+
+1. Import the repo into Vercel.
+2. In the project's **Settings → General → Root Directory**, set it to `web` and save.
+3. Redeploy. Vercel will then detect Next.js and build normally.
+
+Without this, the build fails with `No Next.js version detected` because Vercel looks for `package.json` with `next` in it at the repo root.
+
+### Worker
+
+The worker is a long-lived process, so it can't run on Vercel. Host it somewhere that supports long-running Node processes — Fly.io, Railway, Render, or a VPS. Point it at the deployed frontend with the `WEB_URL` env var. No deploy config is checked in yet.
+
 ## Known TODOs / not done
 
 - No auth on the API routes. Anyone who can reach `/api/jobs` can create/delete jobs. Fine for local dev, not for deploy.
@@ -94,5 +110,5 @@ See `worker/src/jobs/logMessage.ts` for the canonical shape.
 - No per-job enable/disable toggle. To stop a job, delete it.
 - No timezone handling. All cron expressions evaluate in the worker's local TZ.
 - JSON file persistence isn't safe under concurrent writes. For a single local user that's fine.
-- No deploy config. The frontend is Next.js so it'll run on Vercel out of the box; the worker needs a host that supports long-lived processes (Fly.io, Railway, a VPS). Not configured here.
+- No worker deploy config checked in. See the Deploying section above for host options.
 - No tests. Intentionally skipped for the initial scaffold.
