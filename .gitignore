@@ -4,10 +4,12 @@ node_modules/
 .pnp.js
 
 # Next.js
-web/.next/
-web/out/
-web/build/
-web/.vercel
+.next/
+out/
+build/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
 
 # Worker build output
 worker/dist/

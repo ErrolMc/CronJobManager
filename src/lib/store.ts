@@ -3,9 +3,9 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Job, CreateJobInput } from "./types";
 
-// Persist jobs to a single JSON file next to the repo root.
+// Persist jobs to a single JSON file at the repo root.
 // Simple and readable; not safe for concurrent writes, but fine for local dev.
-const DATA_DIR = path.join(process.cwd(), "..", "data");
+const DATA_DIR = path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "jobs.json");
 
 function ensureFile(): void {

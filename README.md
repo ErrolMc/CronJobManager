@@ -2,7 +2,7 @@
 
 A small teaching project for learning how cron-style scheduled jobs work.
 
-- **Frontend** (`web/`): A Next.js app where you configure jobs (name, cron expression, job type, params) and view/delete them. Also exposes a JSON API the worker polls.
+- **Frontend** (repo root): A Next.js app where you configure jobs (name, cron expression, job type, params) and view/delete them. Also exposes a JSON API the worker polls.
 - **Worker** (`worker/`): A long-lived Node.js process that polls the frontend API, parses cron expressions, and fires due jobs. Has a pluggable job-type registry — drop a file into `worker/src/jobs/` to add a new type.
 
 The project is intentionally minimal. No auth, no database server, no fancy abstractions. The goal is to read the code and understand what's happening.
@@ -11,13 +11,15 @@ The project is intentionally minimal. No auth, no database server, no fancy abst
 
 ```
 CronJobManager/
-  web/               Next.js (App Router, TypeScript) frontend + API
-    src/
-      app/
-        page.tsx         Job list + create form
-        api/jobs/        CRUD API routes
-      lib/
-        store.ts         JSON-file persistence
+  src/               Next.js (App Router, TypeScript) frontend + API
+    app/
+      page.tsx         Job list + create form
+      api/jobs/        CRUD API routes
+    lib/
+      store.ts         JSON-file persistence
+  package.json       Next.js app manifest (repo root)
+  next.config.mjs
+  tsconfig.json
   worker/            Node.js (TypeScript) worker process
     src/
       index.ts         Main loop
@@ -33,7 +35,7 @@ CronJobManager/
 
 - **Persistence**: a single JSON file at `data/jobs.json`, read/written by the web app. Chose this over SQLite to keep the scaffold dependency-free and obvious. Swap to SQLite later if concurrent writes or querying matter.
 - **Cron library**: `cron-parser` in the worker. Gives explicit `nextDate()`/`prevDate()` for each expression, which makes the "is this job due?" check easy to read and debug. `node-cron` was an alternative but it hides scheduling inside its own event loop, which is less useful as a teaching example.
-- **Styling**: plain CSS module in `web/src/app/page.module.css`. No Tailwind — one less thing to explain.
+- **Styling**: plain CSS module in `src/app/page.module.css`. No Tailwind — one less thing to explain.
 - **Polling over webhooks**: the worker polls `GET /api/jobs` every few seconds. Simpler than push; fine for teaching.
 - **ID generation**: `crypto.randomUUID()` in the API route. Good enough, no extra dep.
 
@@ -44,14 +46,13 @@ You'll need Node 20+ installed.
 ### 1. Install dependencies
 
 ```bash
-cd web && npm install
-cd ../worker && npm install
+npm install
+cd worker && npm install
 ```
 
 ### 2. Start the frontend
 
 ```bash
-cd web
 npm run dev
 ```
 
@@ -91,13 +92,13 @@ See `worker/src/jobs/logMessage.ts` for the canonical shape.
 
 ### Frontend (Vercel)
 
-The frontend lives in `web/`, not at the repo root, so Vercel needs to be pointed at it:
+The Next.js app lives at the repo root, so Vercel detects it out of the box:
 
 1. Import the repo into Vercel.
-2. In the project's **Settings → General → Root Directory**, set it to `web` and save.
-3. Redeploy. Vercel will then detect Next.js and build normally.
+2. Accept the defaults — Vercel auto-detects the Next.js framework preset from the root `package.json`.
+3. Deploy.
 
-Without this, the build fails with `No Next.js version detected` because Vercel looks for `package.json` with `next` in it at the repo root.
+No Root Directory override is needed.
 
 ### Worker
 
