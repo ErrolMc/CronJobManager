@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { name, cron, type, params, markRunId, markRunAt } =
+  const { name, cron, type, params, runOnce, markRunId, markRunAt } =
     (body as Record<string, unknown>) ?? {};
 
   // The worker uses POST with { markRunId, markRunAt } to record that a job ran.
@@ -49,6 +49,7 @@ export async function POST(req: Request) {
     cron,
     type,
     params: (params as Record<string, unknown>) ?? {},
+    runOnce: runOnce === true,
   });
   return NextResponse.json(job, { status: 201 });
 }

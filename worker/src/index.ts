@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import cronParser from "cron-parser";
-import { fetchJobs, markJobRun } from "./lib/api.js";
+import { fetchJobs, markJobRun, deleteJob } from "./lib/api.js";
 import { loadRegistry } from "./lib/registry.js";
 import type { Job, JobHandler } from "./lib/types.js";
 
@@ -38,6 +38,17 @@ async function runJob(job: Job, handler: JobHandler, now: Date): Promise<void> {
   try {
     await handler.handler(job.params, { job, now });
     await markJobRun(job.id, now);
+    // One-shot jobs fire exactly once, then delete themselves. We only reach
+    // this point if the handler succeeded (the catch below skips deletion on
+    // error, so a failed one-shot stays around and the user can retry or delete).
+    if (job.runOnce) {
+      try {
+        await deleteJob(job.id);
+        console.log(`[scheduler] one-shot job "${job.name}" deleted after firing`);
+      } catch (err) {
+        console.error(`[scheduler] failed to delete one-shot job "${job.name}":`, (err as Error).message);
+      }
+    }
   } catch (err) {
     console.error(`[scheduler] job "${job.name}" (${job.type}) threw:`, err);
   }

@@ -48,6 +48,16 @@ label {
   color: #333;
 }
 
+label.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+label.checkbox input {
+  width: auto;
+}
+
 input,
 textarea {
   font: inherit;

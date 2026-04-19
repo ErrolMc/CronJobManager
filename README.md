@@ -38,6 +38,7 @@ CronJobManager/
 - **Styling**: plain CSS module in `src/app/page.module.css`. No Tailwind — one less thing to explain.
 - **Polling over webhooks**: the worker polls `GET /api/jobs` every few seconds. Simpler than push; fine for teaching.
 - **ID generation**: `crypto.randomUUID()` in the API route. Good enough, no extra dep.
+- **One-shot jobs**: jobs carry an optional `runOnce: boolean`. When set, the worker fires the job at its next scheduled cron time and then deletes it via `DELETE /api/jobs/:id`. Deletion (rather than an `enabled`/`status` flag) keeps the data model flat — no new states, no new UI, the job just disappears from the list. Trade-off: you lose the run history for that job, which is fine because the scaffold doesn't record history anyway. If a one-shot fire fails, the job is left in place so it can retry on the next poll.
 
 ## Run locally
 
@@ -76,6 +77,8 @@ Create a job in the UI:
 - Params: `{"message": "hello from cron"}`
 
 Watch the worker terminal — within a minute you'll see the message logged.
+
+To fire a job exactly once, tick the **Run once** checkbox on the create form. The worker fires it at its next scheduled cron time (e.g. with `* * * * *`, within the next minute) and then deletes it, so it won't appear in the list anymore.
 
 ## How to add a new job type
 

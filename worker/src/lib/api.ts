@@ -22,3 +22,14 @@ export async function markJobRun(id: string, when: Date): Promise<void> {
     throw new Error(`markJobRun failed: ${res.status} ${res.statusText}`);
   }
 }
+
+// Deletes a job via the existing REST endpoint. Used by the scheduler to
+// clean up one-shot jobs after they fire.
+export async function deleteJob(id: string): Promise<void> {
+  const res = await fetch(`${WEB_URL}/api/jobs/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error(`deleteJob failed: ${res.status} ${res.statusText}`);
+  }
+}

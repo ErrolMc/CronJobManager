@@ -9,6 +9,7 @@ export default function Home() {
   const [cron, setCron] = useState("*/1 * * * *");
   const [type, setType] = useState("logMessage");
   const [paramsText, setParamsText] = useState('{"message": "hello from cron"}');
+  const [runOnce, setRunOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function loadJobs() {
@@ -38,7 +39,7 @@ export default function Home() {
     const res = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, cron, type, params }),
+      body: JSON.stringify({ name, cron, type, params, runOnce }),
     });
 
     if (!res.ok) {
@@ -48,6 +49,7 @@ export default function Home() {
     }
 
     setName("");
+    setRunOnce(false);
     await loadJobs();
   }
 
@@ -79,6 +81,14 @@ export default function Home() {
           Params (JSON)
           <textarea value={paramsText} onChange={(e) => setParamsText(e.target.value)} />
         </label>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={runOnce}
+            onChange={(e) => setRunOnce(e.target.checked)}
+          />
+          Run once (fire at the next scheduled time, then delete)
+        </label>
         {error && <div className="error">{error}</div>}
         <button type="submit">Create job</button>
       </form>
@@ -92,6 +102,7 @@ export default function Home() {
             <li key={j.id}>
               <div>
                 <strong>{j.name}</strong> — <code>{j.type}</code>
+                {j.runOnce ? " (one-shot)" : null}
               </div>
               <button className="secondary" onClick={() => onDelete(j.id)}>
                 Delete

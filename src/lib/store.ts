@@ -46,6 +46,7 @@ export function createJob(input: CreateJobInput): Job {
     type: input.type,
     params: input.params ?? {},
     createdAt: new Date().toISOString(),
+    runOnce: input.runOnce === true,
   };
   jobs.push(job);
   writeAll(jobs);
