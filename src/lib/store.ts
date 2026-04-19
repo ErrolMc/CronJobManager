@@ -1,71 +1,86 @@
-import fs from "node:fs";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { getSupabaseServiceClient } from "./supabase";
 import type { Job, CreateJobInput } from "./types";
 
-// Persist jobs to a single JSON file at the repo root.
-// Simple and readable; not safe for concurrent writes, but fine for local dev.
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "jobs.json");
+// Persist jobs in Supabase (Postgres).
+//
+// All reads/writes go through the service-role client, which bypasses RLS.
+// See `supabase/migrations/0001_jobs.sql` for the schema. Postgres generates
+// the `id` (uuid) and `created_at` defaults, so we only send the user-supplied
+// fields on insert.
 
-function ensureFile(): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, "[]", "utf8");
-  }
-}
+const TABLE = "jobs";
 
-function readAll(): Job[] {
-  ensureFile();
-  const raw = fs.readFileSync(DATA_FILE, "utf8");
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as Job[]) : [];
-  } catch {
-    return [];
-  }
-}
+// DB row shape (snake_case, as stored in Postgres).
+type JobRow = {
+  id: string;
+  name: string;
+  cron: string;
+  type: string;
+  params: Record<string, unknown>;
+  run_once: boolean;
+  last_run_at: string | null;
+  created_at: string;
+};
 
-function writeAll(jobs: Job[]): void {
-  ensureFile();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(jobs, null, 2), "utf8");
-}
-
-export function listJobs(): Job[] {
-  return readAll();
-}
-
-export function createJob(input: CreateJobInput): Job {
-  const jobs = readAll();
+function rowToJob(row: JobRow): Job {
   const job: Job = {
-    id: randomUUID(),
-    name: input.name,
-    cron: input.cron,
-    type: input.type,
-    params: input.params ?? {},
-    createdAt: new Date().toISOString(),
-    runOnce: input.runOnce === true,
+    id: row.id,
+    name: row.name,
+    cron: row.cron,
+    type: row.type,
+    params: row.params ?? {},
+    createdAt: row.created_at,
+    runOnce: row.run_once,
   };
-  jobs.push(job);
-  writeAll(jobs);
+  if (row.last_run_at) job.lastRunAt = row.last_run_at;
   return job;
 }
 
-export function deleteJob(id: string): boolean {
-  const jobs = readAll();
-  const next = jobs.filter((j) => j.id !== id);
-  if (next.length === jobs.length) return false;
-  writeAll(next);
-  return true;
+export async function listJobs(): Promise<Job[]> {
+  const supabase = getSupabaseServiceClient();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(`listJobs failed: ${error.message}`);
+  return (data as JobRow[]).map(rowToJob);
 }
 
-export function updateJobLastRun(id: string, when: string): boolean {
-  const jobs = readAll();
-  const idx = jobs.findIndex((j) => j.id === id);
-  if (idx === -1) return false;
-  jobs[idx].lastRunAt = when;
-  writeAll(jobs);
-  return true;
+export async function createJob(input: CreateJobInput): Promise<Job> {
+  const supabase = getSupabaseServiceClient();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .insert({
+      name: input.name,
+      cron: input.cron,
+      type: input.type,
+      params: input.params ?? {},
+      run_once: input.runOnce === true,
+    })
+    .select("*")
+    .single();
+  if (error) throw new Error(`createJob failed: ${error.message}`);
+  return rowToJob(data as JobRow);
+}
+
+export async function deleteJob(id: string): Promise<boolean> {
+  const supabase = getSupabaseServiceClient();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) throw new Error(`deleteJob failed: ${error.message}`);
+  return Array.isArray(data) && data.length > 0;
+}
+
+export async function updateJobLastRun(id: string, when: string): Promise<boolean> {
+  const supabase = getSupabaseServiceClient();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ last_run_at: when })
+    .eq("id", id)
+    .select("id");
+  if (error) throw new Error(`updateJobLastRun failed: ${error.message}`);
+  return Array.isArray(data) && data.length > 0;
 }

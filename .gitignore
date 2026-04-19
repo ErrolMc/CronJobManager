@@ -14,12 +14,6 @@ next-env.d.ts
 # Worker build output
 worker/dist/
 
-# Data
-data/*.json
-data/*.sqlite
-data/*.db
-!data/.gitkeep
-
 # Env
 .env
 .env.local

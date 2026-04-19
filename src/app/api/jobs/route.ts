@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
 import { listJobs, createJob, updateJobLastRun } from "@/lib/store";
 
-// Force the route to run on the Node.js runtime so fs access works.
+// Run on the Node.js runtime (service-role key, Supabase client) and never
+// statically cache — the job list is always per-request fresh.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const jobs = listJobs();
-  return NextResponse.json(jobs);
+  try {
+    const jobs = await listJobs();
+    return NextResponse.json(jobs);
+  } catch (err) {
+    return NextResponse.json(
+      { error: (err as Error).message },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(req: Request) {
@@ -25,9 +33,16 @@ export async function POST(req: Request) {
   // Keeping this on POST /api/jobs (rather than a new route) keeps the surface
   // small for a teaching project. Not the most REST-ful — noted in README TODOs.
   if (typeof markRunId === "string" && typeof markRunAt === "string") {
-    const ok = updateJobLastRun(markRunId, markRunAt);
-    if (!ok) return NextResponse.json({ error: "Job not found." }, { status: 404 });
-    return NextResponse.json({ ok: true });
+    try {
+      const ok = await updateJobLastRun(markRunId, markRunAt);
+      if (!ok) return NextResponse.json({ error: "Job not found." }, { status: 404 });
+      return NextResponse.json({ ok: true });
+    } catch (err) {
+      return NextResponse.json(
+        { error: (err as Error).message },
+        { status: 500 },
+      );
+    }
   }
 
   if (
@@ -44,12 +59,19 @@ export async function POST(req: Request) {
     );
   }
 
-  const job = createJob({
-    name,
-    cron,
-    type,
-    params: (params as Record<string, unknown>) ?? {},
-    runOnce: runOnce === true,
-  });
-  return NextResponse.json(job, { status: 201 });
+  try {
+    const job = await createJob({
+      name,
+      cron,
+      type,
+      params: (params as Record<string, unknown>) ?? {},
+      runOnce: runOnce === true,
+    });
+    return NextResponse.json(job, { status: 201 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: (err as Error).message },
+      { status: 500 },
+    );
+  }
 }
